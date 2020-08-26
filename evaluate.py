@@ -29,14 +29,17 @@ Vaico
 import argparse
 import json
 import time
+from datetime import datetime
+import matplotlib.pyplot as plt
+from os import path, makedirs
 
 from tqdm import tqdm
 import cv2 as cv
 import numpy as np
-from os import path, makedirs
-from datetime import datetime
 
 from MLgeometry import creator
+
+from auxfunc.metrics import precision, recall, abs_error
 
 
 FORMAT_PRED = {
@@ -185,41 +188,80 @@ def evaluate(model_config_path, annotation_filepath, debug=False):
                 print('next')
                 pass
         i += 1
-        if i==2: break
+        if i==50: break
 
     time_elapsed = time.time() - start
     print('Evaluation done in: {}s'.format(time_elapsed))
     metrics = generate_metrics(results)
-    metrics['evaluation_info']={
-        'dataset': annotation_filepath,
-        'observations': len(dataset),
-        'elapsed_time': time_elapsed
-    }
+    # metrics['evaluation_info']={
+    #     'dataset': annotation_filepath,
+    #     'observations': len(dataset),
+    #     'elapsed_time': time_elapsed
+    # }
     timestamp = save_data(model_config_path, metrics, results)
+    generate_plots(metrics, results, timestamp, model_config_path)
 
-
-
-def generate_plots(metrics):
+def generate_plots(metrics, results, timestamp, model_config_path):
     """Generate and save plots from metrics"""
     print('Generating plots...')
-    import matplotlib.pyplot as plt
-    _ = plt.hist(metrics['persona']['presicion'], bins='auto')  # arguments are passed to np.histogram
-    plt.title("Histogram with 'auto' bins")
-    plt.show()
+    root, _ = path.split(model_config_path)
+    saving_path = path.join(root, 'evaluation_plots', timestamp)
+    makedirs(saving_path, exist_ok=True)
+    print(' - Saving plots in: {}'.format(saving_path))
+
+    for label, metric in metrics.items():
+        print('   - Saving plots of {}'.format(label))
+        label_save_path = path.join(saving_path, label)
+        makedirs(label_save_path, exist_ok=True)
+        histogram_plot(metric, 'precision', 'avg_precision', label, label_save_path)
+        histogram_plot(metric, 'recall', 'avg_recall', label, label_save_path)
+        histogram_plot(metric, 'abs_error', 'avg_abs_error', label, label_save_path)
+        confusion_matrix_plot(results, label_save_path, label=label)
+
         
+def histogram_plot(metric, metric_name, metric_avg, label, label_save_path):
+    """Save simple histogram plot"""
+    fig = plt.figure()
+    _ = plt.hist(metric[metric_name], bins='auto')  # arguments are passed to np.histogram
+    plt.axvline(metric[metric_avg], color='k', linestyle='dashed', linewidth=1)
+    plt.title('{} distribution of {}'.format(metric_name.capitalize(), label))
+    fig.savefig(path.join(label_save_path, '{}_histogram.png'.format(metric_name)))
+
+def confusion_matrix_plot(results, label_save_path, label=None):
+    """Create and save confusion matrix. If label is None create multi-class matrix"""
+    if label:
+        true_pos = 0
+        false_neg = 0
+        false_pos = 0
+        true_neg = 0
+        for res in results[label]:
+            true_pos += res['true_pos'] if 'true_pos' in res else true_pos
+            false_neg += res['false_neg'] if 'false_neg' in res else false_neg
+            false_pos += res['false_pos'] if 'false_pos' in res else false_pos
+            true_neg += res['true_neg'] if 'true_neg' in res else true_neg
+    conf_mat = np.array([[true_pos, false_neg],[false_neg, true_neg]])
+    fig = plt.figure()
+    # plt.matshow(conf_mat)
+    axes = fig.add_subplot(111)
+    caxes = axes.matshow(conf_mat)
+    fig.colorbar(caxes)
+    # plt.colorbar()
+    # plt.title('Confusion Matrix of {}'.format(label.capitalize()))
+    fig.savefig(path.join(label_save_path, '{}_cnf_mtrx.png'.format(label)))
+    # plt.show()
+
 
 
 
 def save_data(model_config_path, metrics, results):
     """Save results and metrics in JSON formart"""
     now = datetime.now()
-    timestamp = datetime.timestamp(now)
+    timestamp = str(datetime.timestamp(now)).replace('.', '')
     saving_path, _ = path.split(model_config_path)
     print('Saving Metrics in: {}'.format(saving_path))
-    data_path = path.join(saving_path, 'evaluation_data', str(timestamp).replace('.',''))
+    data_path = path.join(saving_path, 'evaluation_data', timestamp)
     print(' - Making folder at: {}'.format(data_path))
     makedirs(data_path, exist_ok=True)
-
     metrics_file = path.join(data_path, 'metrics.json')
     results_file = path.join(data_path, 'results.json')
     print(' - Saving: {}'.format('metrics.json'))
@@ -230,38 +272,36 @@ def save_data(model_config_path, metrics, results):
         json.dump(results, f)
     return timestamp
 
+
 def generate_metrics(results):
     """generate model metrics for label based on results"""
     print('Generating metrics...')
     metrics = {}
     for label, res in results.items():
-        # Precision: Percentage of correct predictions TP/(TP+FP)
-        precision = [m['true_pos'] / (m['true_pos'] + m['false_pos']) for m in res]
-        avg_precision = np.average(precision)
-        std_precision = np.std(precision)  # standard deviation
+        precision_label = precision(res)
+        avg_precision = np.average(precision_label)
+        std_precision = np.std(precision_label)  # standard deviation
 
-        # Recall or sensitivity: Percentage of predicted vs all ground true TP/(TP+FN)
-        recall = [m['true_pos'] / (m['true_pos'] + m['false_neg']) for m in res]
-        avg_recall = np.average(recall)
-        std_recall = np.std(recall)  # standard deviation
+        recall_label = recall(res)
+        avg_recall = np.average(recall_label)
+        std_recall = np.std(recall_label)  # standard deviation
 
-        # Absolute error: |pred-true|
-        abs_error = [abs(m['true_pos'] - m['true_pos'] + m['false_neg']) for m in res]
-        avg_abs_error = np.average(abs_error)
-        std_abs_error = np.std(abs_error)  # standard deviation
+        abs_error_label = abs_error(res)
+        avg_abs_error = np.average(abs_error_label)
+        std_abs_error = np.std(abs_error_label)  # standard deviation
 
         # Objects per image in test dataset
         objs_per_image = [m['true_pos'] + m['false_neg'] for m in res]
         avg_objs_per_image = np.average(objs_per_image)
 
         metrics[label] = {
-            'presicion': precision,
+            'precision': precision_label,
             'avg_precision': avg_precision,
             'std_precision': std_precision,
-            'recall': recall,
+            'recall': recall_label,
             'avg_recall': avg_recall,
             'std_recall': std_recall,
-            'abs_error': abs_error,
+            'abs_error': abs_error_label,
             'avg_abs_error': avg_abs_error,
             'std_abs_error': std_abs_error,
             'objs_per_image': objs_per_image,
