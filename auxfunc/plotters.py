@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 from os import path, makedirs
 import numpy as np
 
-def histogram(metric, metric_name, metric_avg, label, label_save_path):
+def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='auto'):
     """Save simple histogram plot"""
     fig = plt.figure()
-    _ = plt.hist(metric[metric_name], bins='auto')  # arguments are passed to np.histogram
+    _ = plt.hist(metric[metric_name], bins=bins)  # arguments are passed to np.histogram
     plt.axvline(metric[metric_avg], color='k', linestyle='dashed', linewidth=1)
     plt.title('{} distribution of {}'.format(metric_name.capitalize(), label))
     if label_save_path:
@@ -57,7 +57,7 @@ def generate_plots(metrics, results, timestamp, save_path):
             makedirs(label_save_path, exist_ok=True)
         else:
             label_save_path = None
-        histogram(metric, 'precision', 'avg_precision', label, label_save_path)
-        histogram(metric, 'recall', 'avg_recall', label, label_save_path)
-        histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path)
+        histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
+        histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
+        histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path, bins=20)
         confusion_matrix(results, label_save_path, label=label)
