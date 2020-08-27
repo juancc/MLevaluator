@@ -12,7 +12,7 @@ def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='aut
     fig = plt.figure()
     _ = plt.hist(metric[metric_name], bins=bins)  # arguments are passed to np.histogram
     plt.axvline(metric[metric_avg], color='k', linestyle='dashed', linewidth=1)
-    plt.title('{} distribution of {}'.format(metric_name.capitalize(), label))
+    plt.title('{} distribution of {} per image'.format(metric_name.capitalize(), label))
     if label_save_path:
         fig.savefig(path.join(label_save_path, '{}_histogram.png'.format(metric_name)))
 
@@ -42,17 +42,17 @@ def confusion_matrix(results, label_save_path, label=None):
         fig.savefig(path.join(label_save_path, '{}_cnf_mtrx.png'.format(label)))
 
 
-def generate_plots(metrics, results, timestamp, save_path):
+def generate_plots(metrics, results, save_path):
     """Generate and save plots from metrics"""
     print('Generating plots...')
     if save_path:
-        saving_path = path.join(save_path, 'evaluation_plots', timestamp)
+        saving_path = path.join(save_path, 'plots')
         makedirs(saving_path, exist_ok=True)
         print(' - Saving plots in: {}'.format(saving_path))
 
     for label, metric in metrics.items():
-        print('   - Saving plots of {}'.format(label))
         if save_path:
+            print('   - Saving plots of {}'.format(label))
             label_save_path = path.join(saving_path, label)
             makedirs(label_save_path, exist_ok=True)
         else:
