@@ -16,6 +16,22 @@ def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='aut
     if label_save_path:
         fig.savefig(path.join(label_save_path, '{}_histogram.png'.format(metric_name)))
 
+def pie(metric, metric_name, labels, save_path, title=None):
+    """Create and save simple pie chart"""
+    sizes = []
+    labels_names = []
+    for l in labels.keys():
+        total = sum(metric[l][metric_name])
+        sizes.append(total)
+        labels_names.append(l)
+    fig, ax1 = plt.subplots()
+    ax1.pie(sizes, labels=labels_names, autopct='%1.1f%%',
+            shadow=False)
+    ax1.axis('equal')
+    if title: plt.title(title)
+
+    if save_path:
+        fig.savefig(path.join(save_path, '{}_pie.png'.format(metric_name)))
 
 def confusion_matrix(results, label_save_path, label=None):
     """Create and save confusion matrix. If label is None create multi-class matrix"""
@@ -73,10 +89,14 @@ def generate_plots(metrics, results, classes_matrix, labels, save_path):
             makedirs(label_save_path, exist_ok=True)
         else:
             label_save_path = None
-        if len(metric['precision'])>1:
+        if len(metric['precision'])>1: # There are distribution of metrics
             histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
             histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
             histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path, bins=20)
+            histogram(metric, 'objs_per_image', 'avg_objs_per_image', label, label_save_path)
+
         confusion_matrix(results, label_save_path, label=label)
     if classes_matrix is not None:
         classes_confusion(classes_matrix, labels, save_path)
+
+    pie(metrics, 'objs_per_image', labels, save_path, title='Dataset composition')

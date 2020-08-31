@@ -49,13 +49,11 @@ def detection(dataset, model, labels, iou_threshold, debug):
     results = {}
     n = len(labels)
     conf_matrix = np.zeros((n, n)) if n>1 else None  # With trues at Y (vertical axis)
-
     for observation in tqdm(dataset, total=len(dataset)):
         observation = json.loads(observation)
         im = cv.imread(observation['frame_id'])
         true_objs = creator.from_dict(observation['objects'])
         preds = model.predict(im)
-
         obs_results = {}
         for true in true_objs:
             predictions_per_class = {}  # Number of predictions per class
@@ -94,9 +92,11 @@ def detection(dataset, model, labels, iou_threshold, debug):
             metrics['false_neg'] = metrics['false_neg'] if 'false_neg' in metrics else 0
             if label not in predictions_per_class:  predictions_per_class[label] = 0
 
-            new_false_neg = abs(metrics['true_pos'] + metrics['false_pos'] - predictions_per_class[label])
+            total_per_class = metrics['true_pos'] + metrics['false_pos'] #number of class objects in image
+            new_false_neg = abs(total_per_class - predictions_per_class[label])
             metrics['false_pos'] += new_false_neg
         update_global_results(results, obs_results)
+
         if debug:
             print(obs_results)
             draw(preds, im, draw_formats=FORMAT_PRED)
@@ -108,7 +108,7 @@ def detection(dataset, model, labels, iou_threshold, debug):
             elif k == 32 or k == 83:  # space key, right arrow
                 print('next')
                 pass
-    return results, None
+    return results, conf_matrix
 
 def update_global_results(results, obs_result):
     """Add results from observations to global"""

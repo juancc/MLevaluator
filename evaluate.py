@@ -128,30 +128,37 @@ def save_data(metrics, results, saving_path):
 
 if __name__ == '__main__':
     from sys import path as sys_path
-    sys_path.append('/misdoc/vaico/architectures/Yolo4Lite')
-    from Yolo4Lite import Yolo4Lite
 
-    dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
-    model_path = '/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite'
-    labels = {0:'persona'}
-    save_path = '/home/juanc/tmp/model_evaluation/personas'
-    model = Yolo4Lite.load(model_path, labels=labels, input_size=608)
+    # sys_path.append('/misdoc/vaico/architectures/Yolo4Lite')
+    # from Yolo4Lite import Yolo4Lite
+    #
+    # dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
+    # model_path = '/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite'
+    # labels = {0:'persona'}
+    # save_path = '/home/juanc/tmp/model_evaluation/personas'
+    # model = Yolo4Lite.load(model_path, labels=labels, input_size=608)
+    #
+
+
 
     sys_path.append('/misdoc/vaico/architectures/kerasclassifiers/')
-    # from kerasClassifiers.KerasClassifiers import KerasClassifiers
+    from kerasClassifiers.KerasClassifiers import KerasClassifiers
+    dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
+    model_path = '/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml'
+    labels = ['con arnes','sin arnes']
+    save_path = '/home/juanc/tmp/model_evaluation/arnes'
 
-    # dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
-    # # model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
-    # # model_path = '/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml'
+    # model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
     # labels = ['con casco','sin casco']
     # model_path = '/misdoc/vaico/models/Classifiers/PPE/helmet/helmets_resnet50-AI_fullbody-beta.ml'
     # save_path = '/home/juanc/tmp/model_evaluation/helmet_old'
-    # model = KerasClassifiers.load(model_path)
-    # print(model.labels)
+
+    model = KerasClassifiers.load(model_path)
+    print(model.labels)
 
     evaluate(model, dataset,
              save_path=save_path,
              parents=['persona'],
              labels=labels,
-             percentage=0.05,
+             percentage=0.2,
              debug=False)
