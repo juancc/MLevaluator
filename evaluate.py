@@ -18,6 +18,7 @@ import json
 import time
 from datetime import datetime
 from os import path, makedirs
+from math import floor
 
 from auxfunc.metrics import generate_metrics
 from auxfunc.plotters import generate_plots
@@ -30,11 +31,12 @@ ARCH_TYPE = {
 }
 
 
-def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold=0.35, save_path=None, parents=None):
+def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold=0.35, save_path=None, parents=None, percentage=1.0):
     """Iterate over the dataset observations. Make predictions and compare with true values
     Evaluate performance and save results
     :param annotation_filepath: (str or list) list of annotation paths or annotation path
-    :param parents: (str) parent prediction to trigger model
+    :param parents: (list) parent prediction to trigger model
+    :param percentage: (float) percentage used of the dataset for evaluation. 0 > percentage <= 1
     """
     print(' -- Model Evaluator --')
     print('Openining annotation file: {}'.format(annotation_filepath))
@@ -48,6 +50,10 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
         with open(annotation_filepath, 'r') as f:
             dataset = f.readlines()
     print(' - Observation: {}'.format(len(dataset)))
+    # Percentage of dataset
+    p = floor(percentage * len(dataset))
+    dataset = dataset[:p]
+    print(' - Using: {} of the dataset. Observations to evaluate: {}'.format(percentage, len(dataset)))
 
     arch_name = type(model).__name__
     model_type = 'main'
@@ -65,6 +71,11 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
         print('Model labels replaced with given labels')
         model.labels = labels
 
+    if isinstance(labels, list):
+        labels = {label.lower(): idx for idx, label in enumerate(labels)} if labels else None
+    else:
+        labels = {label.lower():idx for idx, label in labels.items()} if labels else None
+
     print(' - Model labels: {}'.format(labels if len(labels)<10 else len(labels)))
 
     print('Starting evaluation...')
@@ -73,9 +84,9 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     results = {} # per class confusion matrix elements
     start = time.time()
     if prediction_type=='detection':
-        results = detection(dataset, model, labels, iou_threshold, debug)
+        results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug)
     elif prediction_type=='classification':
-        results = classification(dataset, model, labels, debug, parents)
+        results, classes_matrix = classification(dataset, model, labels, debug, parents)
     time_elapsed = time.time() - start
     print('Evaluation done in: {}s'.format(time_elapsed))
     metrics = generate_metrics(results)
@@ -85,7 +96,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
         timestamp = str(datetime.timestamp(now)).replace('.', '')
         save_path = path.join(save_path, 'evaluation-'+timestamp)
 
-        generate_plots(metrics, results, save_path)
+        generate_plots(metrics, results, classes_matrix, labels, save_path)
         # Evaluation metadata
         metrics['evaluation_info'] = {
                 'dataset': annotation_filepath,
@@ -117,23 +128,30 @@ def save_data(metrics, results, saving_path):
 
 if __name__ == '__main__':
     from sys import path as sys_path
-    # sys_path.append('/misdoc/vaico/architectures/Yolo4Lite')
-    # from Yolo4Lite import Yolo4Lite
-    #
-    # dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
-    # model_path = '/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite'
-    # save_path = '/home/juanc/tmp/model_evaluation/'
-    # model = Yolo4Lite.load(model_path, labels={0:'persona'}, input_size=608)
-    #
-    # evaluate(model, dataset, save_path=save_path)
-
-
-    sys_path.append('/misdoc/vaico/architectures/kerasclassifiers/')
-    from kerasClassifiers.KerasClassifiers import KerasClassifiers
+    sys_path.append('/misdoc/vaico/architectures/Yolo4Lite')
+    from Yolo4Lite import Yolo4Lite
 
     dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
-    model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
-    save_path = '/home/juanc/tmp/model_evaluation/helmet'
-    model = KerasClassifiers.load(model_path)
+    model_path = '/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite'
+    labels = {0:'persona'}
+    save_path = '/home/juanc/tmp/model_evaluation/personas'
+    model = Yolo4Lite.load(model_path, labels=labels, input_size=608)
 
-    evaluate(model, dataset, save_path=save_path, parents='persona', labels=['con casco','sin casco'])
+    sys_path.append('/misdoc/vaico/architectures/kerasclassifiers/')
+    # from kerasClassifiers.KerasClassifiers import KerasClassifiers
+
+    # dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
+    # # model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
+    # # model_path = '/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml'
+    # labels = ['con casco','sin casco']
+    # model_path = '/misdoc/vaico/models/Classifiers/PPE/helmet/helmets_resnet50-AI_fullbody-beta.ml'
+    # save_path = '/home/juanc/tmp/model_evaluation/helmet_old'
+    # model = KerasClassifiers.load(model_path)
+    # print(model.labels)
+
+    evaluate(model, dataset,
+             save_path=save_path,
+             parents=['persona'],
+             labels=labels,
+             percentage=0.05,
+             debug=False)

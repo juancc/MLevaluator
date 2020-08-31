@@ -29,7 +29,7 @@ def confusion_matrix(results, label_save_path, label=None):
             false_neg += res['false_neg'] if 'false_neg' in res else false_neg
             false_pos += res['false_pos'] if 'false_pos' in res else false_pos
             true_neg += res['true_neg'] if 'true_neg' in res else true_neg
-    conf_mat = np.array([[true_pos, false_neg],[false_neg, true_neg]])
+    conf_mat = np.array([[true_pos, false_neg],[false_pos, true_neg]])
     fig = plt.figure()
     axes = fig.add_subplot(111)
     caxes = axes.matshow(conf_mat)
@@ -38,11 +38,27 @@ def confusion_matrix(results, label_save_path, label=None):
 
     axes.set_xticklabels(['']+['P','N'])
     axes.set_yticklabels(['']+['P','N'])
+    axes.set_ylabel('Actual')
+    axes.set_xlabel('Predicted')
     if label_save_path:
         fig.savefig(path.join(label_save_path, '{}_cnf_mtrx.png'.format(label)))
 
+def classes_confusion(classes_matrix, labels, save_path):
+    """Plot confusion matrix of classes"""
+    labels = [k for k, v in sorted(labels.items(), key=lambda item: item[1])]
+    fig = plt.figure()
+    axes = fig.add_subplot(111)
+    caxes = axes.matshow(classes_matrix)
+    fig.colorbar(caxes)
+    plt.title('Classes Confusion Matrix')
+    axes.set_xticklabels([''] + labels)
+    axes.set_yticklabels([''] + labels)
+    axes.set_ylabel('Actual')
+    axes.set_xlabel('Predicted')
+    if save_path:
+        fig.savefig(path.join(save_path, 'classes_matrix.png'))
 
-def generate_plots(metrics, results, save_path):
+def generate_plots(metrics, results, classes_matrix, labels, save_path):
     """Generate and save plots from metrics"""
     print('Generating plots...')
     if save_path:
@@ -57,7 +73,10 @@ def generate_plots(metrics, results, save_path):
             makedirs(label_save_path, exist_ok=True)
         else:
             label_save_path = None
-        histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
-        histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
-        histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path, bins=20)
+        if len(metric['precision'])>1:
+            histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
+            histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
+            histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path, bins=20)
         confusion_matrix(results, label_save_path, label=label)
+    if classes_matrix is not None:
+        classes_confusion(classes_matrix, labels, save_path)

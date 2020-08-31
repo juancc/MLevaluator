@@ -41,8 +41,6 @@ def generate_metrics(results):
     return metrics
 
 
-
-
 def precision(res):
     """Calculate the precision per observation of dict with confusion matrix elements.
     Precision: Percentage of correct predictions TP/(TP+FP)"""
@@ -52,6 +50,7 @@ def precision(res):
             precision.append(m['true_pos'] / (m['true_pos'] + m['false_pos']))
         except ZeroDivisionError:
             continue
+
     return precision
 
 def recall(res):
@@ -75,3 +74,8 @@ def abs_error(res):
         except ZeroDivisionError:
             continue
     return abs_error
+
+
+
+
+
