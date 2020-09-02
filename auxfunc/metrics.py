@@ -66,16 +66,26 @@ def recall(res):
 
 def abs_error(res):
     """Calculate the Absolute Error per observation of dict with confusion matrix elements.
-    Absolute error: |pred-true|"""
+    Absolute error: |pred_ok-pred_wrong|"""
     abs_error = []
     for m in res:
         try:
-            abs_error.append(abs(m['true_pos'] - m['true_pos'] + m['false_neg']))
+            abs_error.append(abs(m['true_pos'] + m['true_neg'] - m['false_neg']- m['false_pos']))
         except ZeroDivisionError:
             continue
     return abs_error
 
 
-
+def abs_error_norm(res):
+    """Calculate the Normalized Absolute Error per observation of dict with confusion matrix elements.
+    Absolute error: |pred_ok-pred_wrong|"""
+    abs_error = []
+    for m in res:
+        try:
+            abs_error.append(
+                abs(m['true_pos'] + m['true_neg'] - m['false_neg']- m['false_pos'])/ m['true_pos']+ m['false_neg'])
+        except ZeroDivisionError:
+            continue
+    return abs_error
 
 

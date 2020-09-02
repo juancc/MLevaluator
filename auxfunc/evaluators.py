@@ -13,7 +13,7 @@ from tqdm import tqdm
 import cv2 as cv
 import numpy as np
 
-from MLgeometry import creator
+from MLinference.geometry import creator
 
 from auxfunc.cropper import crop_rect
 
@@ -32,15 +32,19 @@ FORMAT_TRUE = {
     }
 }
 
+def update_count(count, label):
+    if label in count:
+        count[label] += 1
+    else:
+        count[label] = 1
+
 def detection(dataset, model, labels, iou_threshold, debug):
     """Compute evaluation results of detection task. It is not computed the confusion matrix directly as miss placed
     geometries will not be possible to assign to any other label and also objects could not be predicted.
     True Positive: Object Intercept (IOU>threshold) and same label
     True Negatives: Don't apply for this metric. As any miss placed label that are not from the same class will count.
-    False Positive:
-        - If prediction do not intercept any true object (IOU<threshold)
-        - If prediction and true object intercept and miss labeled
-    False Negative: True object was not predicted
+    False Positives: Extra predictions per class
+    False Negatives: Missing predictions per class
     """
     if debug: # Visual debug of labels
         import sys
@@ -55,46 +59,39 @@ def detection(dataset, model, labels, iou_threshold, debug):
         true_objs = creator.from_dict(observation['objects'])
         preds = model.predict(im)
         obs_results = {}
+        predictions_per_class = {}  # Number of predictions per class on image
+        predictions_counted = False  # Count the number of predictions only once
+        true_per_class = {} # Number of true objects per class on image
         for true in true_objs:
-            predictions_per_class = {}  # Number of predictions per class
-            predictions_counted = False # Count the number of predictions only once
             true_predicted = False  # True already predicted
             true.label = true.label.lower()
             if true.label in labels.keys():  # Model is trained to predict that label
+                update_count(true_per_class, true.label)# Count objects on image
                 # Search if model predicted that object
-                # IOU < iou_threshold
                 for p in preds:
                     p.label = p.label.lower()
                     if not predictions_counted: # Count the number of predictions per class (only once)
-                        if p.label in predictions_per_class:
-                            predictions_per_class[p.label] += 1
-                        else:
-                            predictions_per_class[p.label] = 1
+                        update_count(predictions_per_class, p.label)
                     iou = p.geometry.iou(true.geometry)
                     if iou > iou_threshold:
-                        if true.label == p.label and not true_predicted:  # true positive
+                        if true.label == p.label and not true_predicted:
                             add_result(obs_results, 'true_pos', p.label)
                             true_predicted = True
-                        else:  # false positive
-                            add_result(obs_results, 'false_pos', p.label)
-                        # Update Multi-class confusion matrix
                         if conf_matrix is not None:
                             pred_idx = labels[p.label]
                             true_idx = labels[true.label]
                             conf_matrix[true_idx, pred_idx] += 1
-                predictions_counted = True
-                if not true_predicted:  # Object wasnt predicted
-                    add_result(obs_results, 'false_neg', true.label)
+                predictions_counted = True # After make one loop for predictions
+
         # Add missing false positives. Predictions away from trues
         for label, metrics in obs_results.items():
-            metrics['false_pos'] = metrics['false_pos'] if 'false_pos' in metrics else 0
             metrics['true_pos'] = metrics['true_pos'] if 'true_pos' in metrics else 0
-            metrics['false_neg'] = metrics['false_neg'] if 'false_neg' in metrics else 0
+            metrics['true_neg'] = metrics['true_neg'] if 'true_neg' in metrics else 0
             if label not in predictions_per_class:  predictions_per_class[label] = 0
+            if label not in true_per_class:  true_per_class[label] = 0
 
-            total_per_class = metrics['true_pos'] + metrics['false_pos'] #number of class objects in image
-            new_false_neg = abs(total_per_class - predictions_per_class[label])
-            metrics['false_pos'] += new_false_neg
+            metrics['false_pos'] = max(predictions_per_class[label] - metrics['true_pos'] , 0)
+            metrics['false_neg'] = max(true_per_class[label] - metrics['true_pos'] , 0)
         update_global_results(results, obs_results)
 
         if debug:

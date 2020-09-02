@@ -7,12 +7,19 @@ import matplotlib.pyplot as plt
 from os import path, makedirs
 import numpy as np
 
-def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='auto'):
+def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='auto', metric_nickname=None):
     """Save simple histogram plot"""
     fig = plt.figure()
+    axes = fig.add_subplot(111)
     _ = plt.hist(metric[metric_name], bins=bins)  # arguments are passed to np.histogram
     plt.axvline(metric[metric_avg], color='k', linestyle='dashed', linewidth=1)
-    plt.title('{} distribution of {} per image'.format(metric_name.capitalize(), label))
+
+    metric_nickname = metric_nickname if metric_nickname else metric_name
+    plt.title('{} distribution of {} per image'.format(metric_nickname.capitalize(), label))
+
+    axes.set_xlabel(metric_nickname)
+    axes.set_ylabel('No. images')
+
     if label_save_path:
         fig.savefig(path.join(label_save_path, '{}_histogram.png'.format(metric_name)))
 
@@ -92,8 +99,10 @@ def generate_plots(metrics, results, classes_matrix, labels, save_path):
         if len(metric['precision'])>1: # There are distribution of metrics
             histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
             histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
-            histogram(metric, 'abs_error', 'avg_abs_error', label, label_save_path, bins=20)
-            histogram(metric, 'objs_per_image', 'avg_objs_per_image', label, label_save_path)
+            histogram(metric, 'abs_error', 'avg_abs_error',
+                      label, label_save_path, bins=20, metric_nickname='Absolute Error')
+            histogram(metric, 'objs_per_image', 'avg_objs_per_image',
+                      label, label_save_path, metric_nickname='Objects per Image', bins=20)
 
         confusion_matrix(results, label_save_path, label=label)
     if classes_matrix is not None:
