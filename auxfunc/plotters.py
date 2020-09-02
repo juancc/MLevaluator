@@ -14,8 +14,8 @@ def histogram(metric, metric_name, metric_avg, label, label_save_path, bins='aut
     _ = plt.hist(metric[metric_name], bins=bins)  # arguments are passed to np.histogram
     plt.axvline(metric[metric_avg], color='k', linestyle='dashed', linewidth=1)
 
-    metric_nickname = metric_nickname if metric_nickname else metric_name
-    plt.title('{} distribution of {} per image'.format(metric_nickname.capitalize(), label))
+    metric_nickname = metric_nickname.capitalize() if metric_nickname else metric_name.capitalize()
+    plt.title('{} distribution of {} per image'.format(metric_nickname, label))
 
     axes.set_xlabel(metric_nickname)
     axes.set_ylabel('No. images')
@@ -101,6 +101,8 @@ def generate_plots(metrics, results, classes_matrix, labels, save_path):
             histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
             histogram(metric, 'abs_error', 'avg_abs_error',
                       label, label_save_path, bins=20, metric_nickname='Absolute Error')
+            histogram(metric, 'norm_abs_error', 'norm_avg_abs_error',
+                      label, label_save_path, bins=20, metric_nickname='Normalized Absolute Error')
             histogram(metric, 'objs_per_image', 'avg_objs_per_image',
                       label, label_save_path, metric_nickname='Objects per Image', bins=20)
 
