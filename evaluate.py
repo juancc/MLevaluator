@@ -22,17 +22,28 @@ from math import floor
 
 from auxfunc.metrics import generate_metrics
 from auxfunc.plotters import generate_plots
-from auxfunc.evaluators import detection, classification
+from auxfunc.evaluators import detection, classification, cascade
 
 
 ARCH_TYPE = {
     'Yolo4': 'detection',
     'Yolo4Lite': 'detection',
-    'KerasClassifiers': 'classification'
+    'KerasClassifiers': 'classification',
+    'Cascade': 'cascade',
 }
 
 
-def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold=0.35, save_path=None, parents=None, percentage=1.0):
+def fix_labels(labels):
+    """Add index dictionary and lower case labels"""
+    if isinstance(labels, list):
+        labels = {label.lower(): idx for idx, label in enumerate(labels)} if labels else None
+    else:
+        labels = {label.lower():idx for idx, label in labels.items()} if labels else None
+    return labels
+
+
+def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold=0.35, save_path=None, parents=None,
+             percentage=1.0):
     """Iterate over the dataset observations. Make predictions and compare with true values
     Evaluate performance and save results
     :param annotation_filepath: (str or list) list of annotation paths or annotation path
@@ -62,7 +73,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     print(' - Model type: {}. Prediction type: {}'.format(model_type, prediction_type))
 
     print('Getting labels from model config')
-    if not labels:
+    if not labels and prediction_type!='cascade':
         try:
             labels = model.labels
         except AttributeError:
@@ -72,12 +83,10 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
         print('Model labels replaced with given labels')
         model.labels = labels
 
-    if isinstance(labels, list):
-        labels = {label.lower(): idx for idx, label in enumerate(labels)} if labels else None
-    else:
-        labels = {label.lower():idx for idx, label in labels.items()} if labels else None
-
-    print(' - Model labels: {}'.format(labels if len(labels)<10 else len(labels)))
+    # Fix labels to be (dict) {'label': idx}
+    if prediction_type!='cascade':
+        labels = fix_labels(labels)
+        print(' - Model labels: {}'.format(labels if len(labels)<10 else len(labels)))
 
     print('Starting evaluation...')
     print(' - Using IOU threshold at: {}'.format(iou_threshold))
@@ -88,6 +97,9 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
         results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug)
     elif prediction_type=='classification':
         results, classes_matrix = classification(dataset, model, labels, debug, parents)
+    elif prediction_type=='cascade':
+        results, classes_matrix = cascade(dataset, model, labels, debug, parents)
+
     time_elapsed = time.time() - start
     print('Evaluation done in: {}s'.format(time_elapsed))
     metrics = generate_metrics(results)
@@ -132,32 +144,34 @@ if __name__ == '__main__':
     # import sys
     # sys.path.append('/misdoc/vaico/MLinference')
     from MLinference.architectures import Yolo4
-
-    dataset= '/misdoc/datasets/baluarte/00034/annotation.json'
-    model_path = '/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite'
-    labels = {0:'persona'}
-    save_path = '/home/juanc/tmp/model_evaluation/personas00034'
-    model = Yolo4.load(model_path, labels=labels, input_size=608)
-
-
+    from MLinference.strategies import Cascade
+    #
+    # dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
+    # labels_main_model = {0:'persona'}
+    # save_path = '/home/juanc/tmp/model_evaluation/cascade'
+    # model_main = Yolo4.load('/misdoc/vaico/architectures/yolov4_tflite/checkpoints/yolov4_custom_v2.tflite',
+    #                         labels=labels, input_size=608)
+    #
     # sys_path.append('/misdoc/vaico/architectures/kerasclassifiers/')
     # from kerasClassifiers.KerasClassifiers import KerasClassifiers
-    # dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
-    # model_path = '/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml'
-    # labels = ['con arnes','sin arnes']
-    # save_path = '/home/juanc/tmp/model_evaluation/arnes'
-
-    # model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
-    # labels = ['con casco','sin casco']
-    # model_path = '/misdoc/vaico/models/Classifiers/PPE/helmet/helmets_resnet50-AI_fullbody-beta.ml'
-    # save_path = '/home/juanc/tmp/model_evaluation/helmet_old'
-
-    # model = KerasClassifiers.load(model_path)
-    print(model.labels)
-
-    evaluate(model, dataset,
-             save_path=save_path,
-             parents=['persona'],
-             labels=labels,
-             percentage=0.01,
-             debug=False)
+    # # dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
+    # labels_submodel = ['con arnes','sin arnes']
+    # # save_path = '/home/juanc/tmp/model_evaluation/arnes'
+    #
+    # # model_path = '/home/juanc/Downloads/resnet50_ai_helmets_v1.ml'
+    # # labels = ['con casco','sin casco']
+    # # model_path = '/misdoc/vaico/models/Classifiers/PPE/helmet/helmets_resnet50-AI_fullbody-beta.ml'
+    # # save_path = '/home/juanc/tmp/model_evaluation/helmet_old'
+    #
+    # model = KerasClassifiers.load('/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml')
+    #
+    # evaluate(model, dataset,
+    #          save_path=save_path,
+    #          parents=[None],
+    #          labels={
+    #              'main_model': labels_main_model,
+    #              'sub_models': {
+    #                  'persona': labels_submodel
+    #              }},
+    #          percentage=0.01,
+    #          debug=False)

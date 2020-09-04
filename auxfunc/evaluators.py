@@ -13,7 +13,7 @@ from tqdm import tqdm
 import cv2 as cv
 import numpy as np
 
-from MLinference.geometry import creator
+from MLgeometry import creator
 
 from auxfunc.cropper import crop_rect
 
@@ -212,3 +212,55 @@ def process_classification(results, labels):
             'false_pos': np.sum(col)
         }]
     return processed
+
+
+
+def cascade(dataset, model, labels, iou_threshold, debug):
+    """Compute evaluation results of detection task and classification triggered by some labels.
+    Its evaluated as if each classifier were a detection model with the label of the classifier
+    """
+    if debug: # Visual debug of labels
+        import sys
+        sys.path.append('/misdoc/vaico/mldrawer/')
+        from MLdrawer.drawer import draw
+
+    # Assign index to each label of the classifers
+    parents = [p.lower() for p in model.sub_models.keys()]
+    cls_lbls = {} # Classifier labels
+    i=0
+    try:
+        for trigger, sub_models in model.sub_models.items():
+            for sub_model_info in sub_models:
+                    for l in sub_model_info['labels']:
+                        cls_lbls[l.lower()] = i
+                        i += 1
+    except KeyError:
+        print('Is required to specify "labels" for each sub_model')
+        raise KeyError
+    results = {}
+
+    for observation in tqdm(dataset, total=len(dataset)):
+        observation = json.loads(observation)
+        im = cv.imread(observation['frame_id'])
+        true_objs = creator.from_dict(observation['objects'])
+        preds = model.predict(im)
+
+        obs_results = {}
+        for true in true_objs:
+            true.label = true.label.lower()
+            if true.label in parents and true.subobject: # Object trigger model classifiers
+                for p in preds: # Search if the detector predicted the object (detector)
+                    iou = p.geometry.iou(true.geometry)
+                    if p.label == true.label and iou > iou_threshold:
+                        # Detector prediction was OK
+                        # Search for subobjects predictions
+                        for sub in true.subobject:
+                            sub.label = sub.label.lower()
+                            if sub.label in cls_lbls.keys(): # Sub-object most be predicted by the model classifiers
+                                # Search if model predicted
+                                for sub_pred in p.subobjects:
+                                    if sub.label == sub_pred.label:
+                                        add_result(obs_results, 'true_pos', sub.label)
+
+
+

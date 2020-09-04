@@ -14,15 +14,19 @@ def generate_metrics(results):
 
         recall_label = recall(res)
         avg_recall = np.average(recall_label)
-        std_recall = np.std(recall_label)  # standard deviation
+        std_recall = np.std(recall_label)
+
+        f1_label = f1_score(res)
+        avg_f1 = np.average(f1_label)
+        std_f1 = np.std(f1_label)
 
         abs_error_label = abs_error(res)
         avg_abs_error = np.average(abs_error_label)
-        std_abs_error = np.std(abs_error_label)  # standard deviation
+        std_abs_error = np.std(abs_error_label)
 
         norm_abs_error_label = abs_error_norm(res)
         norm_avg_abs_error = np.average(norm_abs_error_label)
-        norm_std_abs_error = np.std(norm_abs_error_label)  # standard deviation
+        norm_std_abs_error = np.std(norm_abs_error_label)
 
         # Objects per image in test dataset
         objs_per_image = [m['true_pos'] + m['false_neg'] for m in res]
@@ -36,6 +40,10 @@ def generate_metrics(results):
             'recall': recall_label,
             'avg_recall': avg_recall,
             'std_recall': std_recall,
+
+            'f1': f1_label,
+            'avg_f1': avg_f1,
+            'std_f1': std_f1,
 
             'abs_error': abs_error_label,
             'avg_abs_error': avg_abs_error,
@@ -74,6 +82,18 @@ def recall(res):
         except ZeroDivisionError:
             continue
     return recall
+
+def f1_score(res):
+    """The F1 score is the harmonic mean of the precision and recall.
+    The highest possible value of F1 is 1, indicating perfect precision and recall"""
+    f1 = []
+    for m in res:
+        try:
+            f1.append(m['true_pos'] / (m['true_pos'] + (0.5*(m['false_pos']+ m['false_neg']) )) )
+        except ZeroDivisionError:
+            continue
+    return f1
+
 
 def abs_error(res):
     """Calculate the Absolute Error per image"""

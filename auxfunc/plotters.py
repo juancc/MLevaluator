@@ -99,6 +99,7 @@ def generate_plots(metrics, results, classes_matrix, labels, save_path):
         if len(metric['precision'])>1: # There are distribution of metrics
             histogram(metric, 'precision', 'avg_precision', label, label_save_path, bins=20)
             histogram(metric, 'recall', 'avg_recall', label, label_save_path, bins=20)
+            histogram(metric, 'f1', 'avg_f1', label, label_save_path, bins=20)
             histogram(metric, 'abs_error', 'avg_abs_error',
                       label, label_save_path, bins=20, metric_nickname='Absolute Error')
             histogram(metric, 'norm_abs_error', 'norm_avg_abs_error',
