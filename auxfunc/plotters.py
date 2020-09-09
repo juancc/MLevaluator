@@ -28,7 +28,10 @@ def pie(metric, metric_name, labels, save_path, title=None):
     sizes = []
     labels_names = []
     for l in labels.keys():
-        total = sum(metric[l][metric_name])
+        try:
+            total = sum(metric[l][metric_name])
+        except KeyError:
+            total = 0
         sizes.append(total)
         labels_names.append(l)
     fig, ax1 = plt.subplots()

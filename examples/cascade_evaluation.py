@@ -25,7 +25,7 @@ model = Cascade(
         'model': model_main,
         'labels': labels_main_model},
     sub_models={
-        'person': [
+        'persona': [
             {'model': model_classifier,
              'labels': labels_submodel,
              }]
@@ -35,5 +35,5 @@ model = Cascade(
 evaluate(model, dataset,
          save_path=save_path,
          parents=[None],
-         percentage=0.01,
+         percentage=0.2,
          debug=False)

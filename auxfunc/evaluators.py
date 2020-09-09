@@ -13,7 +13,7 @@ from tqdm import tqdm
 import cv2 as cv
 import numpy as np
 
-from MLgeometry import creator
+from MLgeometry import creator, Object
 
 from auxfunc.cropper import crop_rect
 
@@ -38,13 +38,40 @@ def update_count(count, label):
     else:
         count[label] = 1
 
-def detection(dataset, model, labels, iou_threshold, debug):
+def cascade_to_detection_labels(objects, model, labels):
+    """Convert Cascade labels to detection labels.
+    Add a new object with the geometry of detector and the label of the subobject.
+    Detector object is removed for avoid confusing results
+    """
+    new_objects = []
+    for o in objects:
+        o.label = o.label.lower()
+        if o.label in model.sub_models.keys() and o.subobject:
+            for sub_obj in o.subobject:
+                sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj # Classifier return prediction in a list
+                sub_obj.label = sub_obj.label.lower()
+                if sub_obj.label in labels.keys():
+                    new_objects.append(
+                        Object(
+                            geometry =o.geometry,
+                            label = sub_obj.label,
+                            score = sub_obj.score,
+                            subobject = None
+                        )
+                    )
+
+    return new_objects
+
+
+def detection(dataset, model, labels, iou_threshold, debug, mode='detection'):
     """Compute evaluation results of detection task. It is not computed the confusion matrix directly as miss placed
     geometries will not be possible to assign to any other label and also objects could not be predicted.
     True Positive: Object Intercept (IOU>threshold) and same label
     True Negatives: Don't apply for this metric. As any miss placed label that are not from the same class will count.
     False Positives: Extra predictions per class
     False Negatives: Missing predictions per class
+
+    If mode=='cascade': labels of the sub-models will be treated as detector objects
     """
     if debug: # Visual debug of labels
         import sys
@@ -56,8 +83,12 @@ def detection(dataset, model, labels, iou_threshold, debug):
     for observation in tqdm(dataset, total=len(dataset)):
         observation = json.loads(observation)
         im = cv.imread(observation['frame_id'])
+
         true_objs = creator.from_dict(observation['objects'])
+        true_objs = cascade_to_detection_labels(true_objs, model, labels) if mode == 'cascade' else true_objs
         preds = model.predict(im)
+        preds = cascade_to_detection_labels(preds, model, labels) if mode == 'cascade' else preds
+
         obs_results = {}
         predictions_per_class = {}  # Number of predictions per class on image
         predictions_counted = False  # Count the number of predictions only once
@@ -154,6 +185,7 @@ def classification(dataset, model, labels, debug, parents):
         true_objs = creator.from_dict(observation['objects'])
         for true in true_objs:
             true.label = true.label.lower()
+
             if true.label in parents and true.subobject:
                 # Crop sub object area
                 area = {
@@ -212,55 +244,4 @@ def process_classification(results, labels):
             'false_pos': np.sum(col)
         }]
     return processed
-
-
-
-def cascade(dataset, model, labels, iou_threshold, debug):
-    """Compute evaluation results of detection task and classification triggered by some labels.
-    Its evaluated as if each classifier were a detection model with the label of the classifier
-    """
-    if debug: # Visual debug of labels
-        import sys
-        sys.path.append('/misdoc/vaico/mldrawer/')
-        from MLdrawer.drawer import draw
-
-    # Assign index to each label of the classifers
-    parents = [p.lower() for p in model.sub_models.keys()]
-    cls_lbls = {} # Classifier labels
-    i=0
-    try:
-        for trigger, sub_models in model.sub_models.items():
-            for sub_model_info in sub_models:
-                    for l in sub_model_info['labels']:
-                        cls_lbls[l.lower()] = i
-                        i += 1
-    except KeyError:
-        print('Is required to specify "labels" for each sub_model')
-        raise KeyError
-    results = {}
-
-    for observation in tqdm(dataset, total=len(dataset)):
-        observation = json.loads(observation)
-        im = cv.imread(observation['frame_id'])
-        true_objs = creator.from_dict(observation['objects'])
-        preds = model.predict(im)
-
-        obs_results = {}
-        for true in true_objs:
-            true.label = true.label.lower()
-            if true.label in parents and true.subobject: # Object trigger model classifiers
-                for p in preds: # Search if the detector predicted the object (detector)
-                    iou = p.geometry.iou(true.geometry)
-                    if p.label == true.label and iou > iou_threshold:
-                        # Detector prediction was OK
-                        # Search for subobjects predictions
-                        for sub in true.subobject:
-                            sub.label = sub.label.lower()
-                            if sub.label in cls_lbls.keys(): # Sub-object most be predicted by the model classifiers
-                                # Search if model predicted
-                                for sub_pred in p.subobjects:
-                                    if sub.label == sub_pred.label:
-                                        add_result(obs_results, 'true_pos', sub.label)
-
-
 

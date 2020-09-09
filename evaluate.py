@@ -22,7 +22,7 @@ from math import floor
 
 from auxfunc.metrics import generate_metrics
 from auxfunc.plotters import generate_plots
-from auxfunc.evaluators import detection, classification, cascade
+from auxfunc.evaluators import detection, classification
 
 
 ARCH_TYPE = {
@@ -35,10 +35,11 @@ ARCH_TYPE = {
 
 def fix_labels(labels):
     """Add index dictionary and lower case labels"""
+    labels = {}
     if isinstance(labels, list):
-        labels = {label.lower(): idx for idx, label in enumerate(labels)} if labels else None
+        labels = {label.lower(): idx for idx, label in enumerate(labels)}
     else:
-        labels = {label.lower():idx for idx, label in labels.items()} if labels else None
+        labels = {label.lower():idx for idx, label in labels.items()}
     return labels
 
 
@@ -81,24 +82,41 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
             labels = None
     else:
         print('Model labels replaced with given labels')
-        model.labels = labels
 
+    # Replace model labels with given labels
     # Fix labels to be (dict) {'label': idx}
     if prediction_type!='cascade':
+        model.labels = labels
         labels = fix_labels(labels)
         print(' - Model labels: {}'.format(labels if len(labels)<10 else len(labels)))
-
+    else:
+        # Remove detector labels that have classifiers
+        model.main_model['model'].labels = model.main_model['labels']
+        main_labels = [lbl for lbl in model.main_model['labels'].values() if lbl not in  model.sub_models.keys() ]
+        labels = fix_labels(main_labels)
+        i = len(labels)
+        for parent, classifiers in model.sub_models.items():
+            if len(classifiers) > 1:
+                print('Warning! If more than one classifier is given for the same main class results could be confuse. '
+                      'Main class: {}, classifiers: {}'.format(parent, len(classifiers)))
+            for classifier in classifiers:
+                classifier['model'].labels = classifier['labels']
+                for lbl in classifier['labels']:
+                    labels[lbl] = i
+                    i += 1
+    print(' - Model labels: {}'.format(labels if len(labels) < 10 else len(labels)))
     print('Starting evaluation...')
     print(' - Using IOU threshold at: {}'.format(iou_threshold))
     # Results
     results = {} # per class confusion matrix elements
     start = time.time()
-    if prediction_type=='detection':
-        results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug)
+    if prediction_type=='detection' or prediction_type=='cascade':
+        results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug, mode=prediction_type)
     elif prediction_type=='classification':
         results, classes_matrix = classification(dataset, model, labels, debug, parents)
-    elif prediction_type=='cascade':
-        results, classes_matrix = cascade(dataset, model, labels, debug, parents)
+    else:
+        print('Evaluation problem not identify, possible values: cascade, detection or classification')
+        exit()
 
     time_elapsed = time.time() - start
     print('Evaluation done in: {}s'.format(time_elapsed))
