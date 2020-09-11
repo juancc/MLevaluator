@@ -8,12 +8,15 @@ Functions for performing the evaluation of model with the dataset depending of t
  Vaico
 """
 import json
+from os import path, makedirs
+from random import random
 
 from tqdm import tqdm
 import cv2 as cv
 import numpy as np
 
 from MLgeometry import creator, Object
+from MLdrawer.drawer import draw
 
 from auxfunc.cropper import crop_rect
 
@@ -63,7 +66,7 @@ def cascade_to_detection_labels(objects, model, labels):
     return new_objects
 
 
-def detection(dataset, model, labels, iou_threshold, debug, mode='detection'):
+def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='detection'):
     """Compute evaluation results of detection task. It is not computed the confusion matrix directly as miss placed
     geometries will not be possible to assign to any other label and also objects could not be predicted.
     True Positive: Object Intercept (IOU>threshold) and same label
@@ -73,21 +76,25 @@ def detection(dataset, model, labels, iou_threshold, debug, mode='detection'):
 
     If mode=='cascade': labels of the sub-models will be treated as detector objects
     """
-    if debug: # Visual debug of labels
-        import sys
-        sys.path.append('/misdoc/vaico/mldrawer/')
-        from MLdrawer.drawer import draw
     results = {}
     n = len(labels)
     conf_matrix = np.zeros((n, n)) if n>1 else None  # With trues at Y (vertical axis)
+
+    if save_path:
+        saving_path = path.join(save_path, 'predictions')
+        makedirs(saving_path, exist_ok=True)
+        print(' - Saving prediction examples in: {}'.format(saving_path))
+
+    i=0
     for observation in tqdm(dataset, total=len(dataset)):
         observation = json.loads(observation)
         im = cv.imread(observation['frame_id'])
 
         true_objs = creator.from_dict(observation['objects'])
-        true_objs = cascade_to_detection_labels(true_objs, model, labels) if mode == 'cascade' else true_objs
         preds = model.predict(im)
-        preds = cascade_to_detection_labels(preds, model, labels) if mode == 'cascade' else preds
+        if mode == 'cascade':
+            true_objs = cascade_to_detection_labels(true_objs, model, labels)
+            preds = cascade_to_detection_labels(preds, model, labels)
 
         obs_results = {}
         predictions_per_class = {}  # Number of predictions per class on image
@@ -114,6 +121,18 @@ def detection(dataset, model, labels, iou_threshold, debug, mode='detection'):
                             conf_matrix[true_idx, pred_idx] += 1
                 predictions_counted = True # After make one loop for predictions
 
+        # Count prediction even if not true objects on image
+        if not predictions_counted:
+            for p in preds:
+                p.label = p.label.lower()
+                update_count(predictions_per_class, p.label)
+
+        # Add labels to observations results
+        for label in predictions_per_class.keys():
+            if label not in obs_results: obs_results[label] = {}
+        for label in true_per_class.keys():
+            if label not in obs_results: obs_results[label] = {}
+
         # Add missing false positives. Predictions away from trues
         for label, metrics in obs_results.items():
             metrics['true_pos'] = metrics['true_pos'] if 'true_pos' in metrics else 0
@@ -124,6 +143,16 @@ def detection(dataset, model, labels, iou_threshold, debug, mode='detection'):
             metrics['false_pos'] = max(predictions_per_class[label] - metrics['true_pos'] , 0)
             metrics['false_neg'] = max(true_per_class[label] - metrics['true_pos'] , 0)
         update_global_results(results, obs_results)
+
+        if random()>0.5:
+            # Store prediction example
+            sample_path = path.join(saving_path, str(i))
+            draw(preds, im, draw_formats=FORMAT_PRED)
+            draw(true_objs, im, draw_formats=FORMAT_TRUE)
+            cv.imwrite(sample_path+'.jpg', im)
+            with open(sample_path+'.json', 'w') as f:
+                json.dump(obs_results, f)
+            i += 1
 
         if debug:
             print(obs_results)
@@ -161,7 +190,7 @@ def add_result(results, new_metric, label):
     return results
 
 
-def classification(dataset, model, labels, debug, parents):
+def classification(dataset, model, labels, debug, parents, save_path):
     """Evaluate model for classification problem. Dataset is given as a detection with subclasses.
     Model is triggered by a parent class. Evaluation is performed over the subclass of the detection
     """

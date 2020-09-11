@@ -35,12 +35,12 @@ ARCH_TYPE = {
 
 def fix_labels(labels):
     """Add index dictionary and lower case labels"""
-    labels = {}
+    _labels = {}
     if isinstance(labels, list):
-        labels = {label.lower(): idx for idx, label in enumerate(labels)}
+        _labels = {label.lower(): idx for idx, label in enumerate(labels)}
     else:
-        labels = {label.lower():idx for idx, label in labels.items()}
-    return labels
+        _labels = {label.lower():idx for idx, label in labels.items()}
+    return _labels
 
 
 def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold=0.35, save_path=None, parents=None,
@@ -50,6 +50,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     :param annotation_filepath: (str or list) list of annotation paths or annotation path
     :param parents: (list) parent prediction to trigger model
     :param percentage: (float) percentage used of the dataset for evaluation. 0 > percentage <= 1
+    :param max_pred_examples: (int) Max number of prediction examples to store
     """
     print(' -- Model Evaluator --')
     print('Openining annotation file: {}'.format(annotation_filepath))
@@ -73,22 +74,21 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     prediction_type = ARCH_TYPE[arch_name] if arch_name in ARCH_TYPE else 'unknown'
     print(' - Model type: {}. Prediction type: {}'.format(model_type, prediction_type))
 
-    print('Getting labels from model config')
+    print('Setting labels')
     if not labels and prediction_type!='cascade':
+        print(' - Getting labels from model')
         try:
             labels = model.labels
         except AttributeError:
-            print('Model does not have labels. Some metrics will not be available')
+            print(' - Model does not have labels. Some metrics will not be available')
             labels = None
-    else:
-        print('Model labels replaced with given labels')
 
     # Replace model labels with given labels
     # Fix labels to be (dict) {'label': idx}
     if prediction_type!='cascade':
+        print(' - Model labels will be replaced with given labels')
         model.labels = labels
         labels = fix_labels(labels)
-        print(' - Model labels: {}'.format(labels if len(labels)<10 else len(labels)))
     else:
         # Remove detector labels that have classifiers
         model.main_model['model'].labels = model.main_model['labels']
@@ -107,13 +107,19 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     print(' - Model labels: {}'.format(labels if len(labels) < 10 else len(labels)))
     print('Starting evaluation...')
     print(' - Using IOU threshold at: {}'.format(iou_threshold))
+
+    if save_path:
+        now = datetime.now()
+        timestamp = str(datetime.timestamp(now)).replace('.', '')
+        save_path = path.join(save_path, 'evaluation-'+timestamp)
+
     # Results
     results = {} # per class confusion matrix elements
     start = time.time()
     if prediction_type=='detection' or prediction_type=='cascade':
-        results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug, mode=prediction_type)
+        results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug, save_path, mode=prediction_type)
     elif prediction_type=='classification':
-        results, classes_matrix = classification(dataset, model, labels, debug, parents)
+        results, classes_matrix = classification(dataset, model, labels, debug, parents, save_path)
     else:
         print('Evaluation problem not identify, possible values: cascade, detection or classification')
         exit()
@@ -123,10 +129,6 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     metrics = generate_metrics(results)
 
     if save_path:
-        now = datetime.now()
-        timestamp = str(datetime.timestamp(now)).replace('.', '')
-        save_path = path.join(save_path, 'evaluation-'+timestamp)
-
         generate_plots(metrics, results, classes_matrix, labels, save_path)
         # Evaluation metadata
         metrics['evaluation_info'] = {
