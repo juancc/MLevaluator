@@ -1,4 +1,5 @@
 MLinference
+MLgeometry
 tqdm
 opencv-python
 numpy

@@ -18,7 +18,7 @@ import numpy as np
 from MLgeometry import creator, Object
 from MLdrawer.drawer import draw
 
-from auxfunc.cropper import crop_rect
+from MLevaluator.auxfunc.cropper import crop_rect
 
 FORMAT_PRED = {
     '*':{

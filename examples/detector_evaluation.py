@@ -1,6 +1,6 @@
 from MLinference.architectures import Yolo4
 
-from evaluate import evaluate
+from MLevaluator.evaluate import evaluate
 
 dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
 save_path = '/home/juanc/tmp/model_evaluation/personas'

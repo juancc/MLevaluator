@@ -5,7 +5,7 @@ from kerasClassifiers.KerasClassifiers import KerasClassifiers
 from MLinference.architectures import Yolo4
 from MLinference.strategies import Cascade
 
-from evaluate import evaluate
+from MLevaluator.evaluate import evaluate
 
 dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
 save_path = '/home/juanc/tmp/model_evaluation/cascade'

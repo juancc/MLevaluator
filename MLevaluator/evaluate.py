@@ -13,16 +13,15 @@ Path to dataset json-lines annotation file
 JCA
 Vaico
 """
-import argparse
 import json
 import time
 from datetime import datetime
 from os import path, makedirs
 from math import floor
 
-from auxfunc.metrics import generate_metrics
-from auxfunc.plotters import generate_plots
-from auxfunc.evaluators import detection, classification
+from MLevaluator.auxfunc.metrics import generate_metrics
+from MLevaluator.auxfunc.plotters import generate_plots
+from MLevaluator.auxfunc.evaluators import detection, classification
 
 
 ARCH_TYPE = {
@@ -163,8 +162,7 @@ if __name__ == '__main__':
     # from sys import path as sys_path
     # import sys
     # sys.path.append('/misdoc/vaico/MLinference')
-    from MLinference.architectures import Yolo4
-    from MLinference.strategies import Cascade
+    pass
     #
     # dataset= '/misdoc/datasets/baluarte/00025/annotation.json'
     # labels_main_model = {0:'persona'}

@@ -2,7 +2,7 @@ import sys
 sys.path.append('/misdoc/vaico/architectures/kerasclassifiers/')
 from kerasClassifiers.KerasClassifiers import KerasClassifiers
 
-from evaluate import evaluate
+from MLevaluator.evaluate import evaluate
 
 dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
 labels = ['con arnes','sin arnes']
