@@ -144,7 +144,7 @@ def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='det
             metrics['false_neg'] = max(true_per_class[label] - metrics['true_pos'] , 0)
         update_global_results(results, obs_results)
 
-        if random()>0.5:
+        if random()>0.8:
             # Store prediction example
             sample_path = path.join(saving_path, str(i))
             draw(preds, im, draw_formats=FORMAT_PRED)
