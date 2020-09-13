@@ -29,6 +29,7 @@ ARCH_TYPE = {
     'Yolo4Lite': 'detection',
     'KerasClassifiers': 'classification',
     'Cascade': 'cascade',
+    'Posterior': 'posterior'
 }
 
 
@@ -74,7 +75,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     print(' - Model type: {}. Prediction type: {}'.format(model_type, prediction_type))
 
     print('Setting labels')
-    if not labels and prediction_type!='cascade':
+    if not labels and (prediction_type=='detector' or prediction_type=='classification'):
         print(' - Getting labels from model')
         try:
             labels = model.labels
@@ -84,14 +85,14 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
 
     # Replace model labels with given labels
     # Fix labels to be (dict) {'label': idx}
-    if prediction_type!='cascade':
+    if prediction_type=='detector' or prediction_type=='classification':
         print(' - Model labels will be replaced with given labels')
         model.labels = labels
         labels = fix_labels(labels)
-    else:
+    elif prediction_type == 'cascade':
         # Remove detector labels that have classifiers
         model.main_model['model'].labels = model.main_model['labels']
-        main_labels = [lbl for lbl in model.main_model['labels'].values() if lbl not in  model.sub_models.keys() ]
+        main_labels = [lbl for lbl in model.main_model['labels'].values() if lbl not in  model.sub_models.keys()]
         labels = fix_labels(main_labels)
         i = len(labels)
         for parent, classifiers in model.sub_models.items():
@@ -103,6 +104,19 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
                 for lbl in classifier['labels']:
                     labels[lbl] = i
                     i += 1
+    elif prediction_type=='posterior':
+        if not labels:
+            print('Labels most be given for Posterior models')
+            exit()
+        else:
+            if len(labels)>1:
+                print('Warning! If more than one classifier is given for the same main class results could be confuse.')
+        model.labels = dict(labels)
+        labels = []
+        for label, sub_labels in model.labels.items():
+            labels += sub_labels
+        labels = fix_labels(labels)
+
     print(' - Model labels: {}'.format(labels if len(labels) < 10 else len(labels)))
     print('Starting evaluation...')
     print(' - Using IOU threshold at: {}'.format(iou_threshold))
@@ -115,7 +129,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     # Results
     results = {} # per class confusion matrix elements
     start = time.time()
-    if prediction_type=='detection' or prediction_type=='cascade':
+    if prediction_type=='detection' or prediction_type=='cascade' or prediction_type=='posterior':
         results, classes_matrix = detection(dataset, model, labels, iou_threshold, debug, save_path, mode=prediction_type)
     elif prediction_type=='classification':
         results, classes_matrix = classification(dataset, model, labels, debug, parents, save_path)

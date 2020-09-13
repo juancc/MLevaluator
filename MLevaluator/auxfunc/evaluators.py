@@ -44,8 +44,7 @@ def update_count(count, label):
 def cascade_to_detection_labels(objects, model, labels):
     """Convert Cascade labels to detection labels.
     Add a new object with the geometry of detector and the label of the subobject.
-    Detector object is removed for avoid confusing results
-    """
+    Detector object is removed for avoid confusing results"""
     new_objects = []
     for o in objects:
         o.label = o.label.lower()
@@ -62,8 +61,31 @@ def cascade_to_detection_labels(objects, model, labels):
                             subobject = None
                         )
                     )
-
     return new_objects
+
+def posterior_to_detection_labels(objects, model, labels):
+    """Convert Posterior labels to detection labels.
+        Add a new object with the geometry of detector and the label of the subobject.
+        Detector object is removed for avoid confusing results"""
+    new_objects = []
+    for o in objects:
+        o.label = o.label.lower()
+        if o.label in model.labels.keys() and o.subobject:
+            for sub_obj in o.subobject:
+                sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj  # Classifier return prediction in a list
+                sub_obj.label = sub_obj.label.lower()
+                if sub_obj.label in model.labels[o.label]:
+                    sub_obj.label = sub_obj.label.lower()
+                    new_objects.append(
+                        Object(
+                            geometry=o.geometry,
+                            label=sub_obj.label,
+                            score=sub_obj.score,
+                            subobject=None
+                        )
+                    )
+    return new_objects
+
 
 
 def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='detection'):
@@ -92,9 +114,15 @@ def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='det
 
         true_objs = creator.from_dict(observation['objects'])
         preds = model.predict(im)
+        eval_preds = list(preds)
         if mode == 'cascade':
             true_objs = cascade_to_detection_labels(true_objs, model, labels)
             preds = cascade_to_detection_labels(preds, model, labels)
+            eval_preds = cascade_to_detection_labels(eval_preds, model, labels)
+        elif mode== 'posterior':
+            true_objs = posterior_to_detection_labels(true_objs, model, labels)
+            preds = posterior_to_detection_labels(preds, model, labels)
+            eval_preds = posterior_to_detection_labels(eval_preds, model, labels)
 
         obs_results = {}
         predictions_per_class = {}  # Number of predictions per class on image
@@ -106,19 +134,22 @@ def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='det
             if true.label in labels.keys():  # Model is trained to predict that label
                 update_count(true_per_class, true.label)# Count objects on image
                 # Search if model predicted that object
-                for p in preds:
+                for p in eval_preds:
                     p.label = p.label.lower()
                     if not predictions_counted: # Count the number of predictions per class (only once)
                         update_count(predictions_per_class, p.label)
                     iou = p.geometry.iou(true.geometry)
                     if iou > iou_threshold:
-                        if true.label == p.label and not true_predicted:
-                            add_result(obs_results, 'true_pos', p.label)
-                            true_predicted = True
                         if conf_matrix is not None:
                             pred_idx = labels[p.label]
                             true_idx = labels[true.label]
                             conf_matrix[true_idx, pred_idx] += 1
+                        if true.label == p.label and not true_predicted:
+                            add_result(obs_results, 'true_pos', p.label)
+                            true_predicted = True
+                            # Remove prediction for avoid double counting near elements
+                            eval_preds.remove(p)
+
                 predictions_counted = True # After make one loop for predictions
 
         # Count prediction even if not true objects on image
@@ -199,6 +230,11 @@ def classification(dataset, model, labels, debug, parents, save_path):
         print('For classification is required explicit labels (By the model or as function argument)')
         exit()
 
+    if save_path:
+        saving_path = path.join(save_path, 'predictions')
+        makedirs(saving_path, exist_ok=True)
+        print(' - Saving prediction examples in: {}'.format(saving_path))
+
     # Get conditions and weights from model to crop subregions
     print('Getting ROI conditions and weights. If not specified in the model defaults will be used.\n '
           'For specify custom, add model.roi_conditions and model. roi_weights')
@@ -208,6 +244,7 @@ def classification(dataset, model, labels, debug, parents, save_path):
     print(' - Using ROI weights: {}'.format(weights))
 
     conf_matrix = np.zeros((len(labels), len(labels)))  # With trues at Y (vertical axis)
+    i=0
     for observation in tqdm(dataset, total=len(dataset)):
         observation = json.loads(observation)
         im = cv.imread(observation['frame_id'])
@@ -246,6 +283,13 @@ def classification(dataset, model, labels, debug, parents, save_path):
                             elif k == 32 or k == 83:  # space key, right arrow
                                 print('Next')
                                 pass
+
+                    if random() > 0.8:
+                        # Store prediction example
+                        name = 'p:{}-t:{}.jpg'.format(pred.label, sub.label)
+                        sample_path = path.join(saving_path, str(i))
+                        cv.imwrite(sample_path + name, im_crop)
+                        i += 1
 
     return process_classification(conf_matrix, labels), conf_matrix
 

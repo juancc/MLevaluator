@@ -16,7 +16,7 @@ model_main = Yolo4.load('/misdoc/vaico/architectures/yolov4_tflite/checkpoints/y
                         labels=labels_main_model, input_size=608)
 
 labels_submodel = ['con arnes', 'sin arnes']
-model_classifier = KerasClassifiers.load('/home/juanc/Downloads/resnet_imageAI_arnes_v1.ml')
+model_classifier = KerasClassifiers.load('/home/juanc/Downloads/arnes_resnet50-20200801.ml')
 
 # Load models with evaluation labels and submodels with a unique ID
 # The ID is used to refer the evaluation results
