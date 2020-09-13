@@ -284,12 +284,12 @@ def classification(dataset, model, labels, debug, parents, save_path):
                                 print('Next')
                                 pass
 
-                    if random() > 0.8:
-                        # Store prediction example
-                        name = 'p:{}-t:{}.jpg'.format(pred.label, sub.label)
-                        sample_path = path.join(saving_path, str(i))
-                        cv.imwrite(sample_path + name, im_crop)
-                        i += 1
+                        if random() > 0.8 and save_path:
+                            # Store prediction example
+                            name = 'p:{}-t:{}.jpg'.format(pred.label, sub.label)
+                            sample_path = path.join(saving_path, str(i))
+                            cv.imwrite(sample_path + name, im_crop)
+                            i += 1
 
     return process_classification(conf_matrix, labels), conf_matrix
 
