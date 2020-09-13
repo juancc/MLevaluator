@@ -75,7 +75,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
     print(' - Model type: {}. Prediction type: {}'.format(model_type, prediction_type))
 
     print('Setting labels')
-    if not labels and (prediction_type=='detector' or prediction_type=='classification'):
+    if not labels and (prediction_type=='detection' or prediction_type=='classification'):
         print(' - Getting labels from model')
         try:
             labels = model.labels
@@ -85,7 +85,7 @@ def evaluate(model, annotation_filepath, debug=False, labels=None, iou_threshold
 
     # Replace model labels with given labels
     # Fix labels to be (dict) {'label': idx}
-    if prediction_type=='detector' or prediction_type=='classification':
+    if prediction_type=='detection' or prediction_type=='classification':
         print(' - Model labels will be replaced with given labels')
         model.labels = labels
         labels = fix_labels(labels)

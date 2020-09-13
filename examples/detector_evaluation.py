@@ -2,7 +2,7 @@ from MLinference.architectures import Yolo4
 
 from MLevaluator.evaluate import evaluate
 
-dataset = ['/misdoc/datasets/baluarte/00025/annotation.json', '/misdoc/datasets/baluarte/00034/annotation.json']
+dataset = '/misdoc/datasets/baluarte/00025/annotation.json'
 save_path = '/home/juanc/tmp/model_evaluation/personas'
 
 labels = {0: 'persona'}
@@ -13,5 +13,5 @@ evaluate(model, dataset,
          save_path=save_path,
          labels = labels,
          parents=[None],
-         percentage=0.2,
+         percentage=0.1,
          debug=False)
