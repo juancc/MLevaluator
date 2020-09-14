@@ -128,12 +128,14 @@ def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='det
         predictions_per_class = {}  # Number of predictions per class on image
         predictions_counted = False  # Count the number of predictions only once
         true_per_class = {} # Number of true objects per class on image
+        true_predicted_objects = [] # prediction objects that are true. Avoid double counting near elements
         for true in true_objs:
             true_predicted = False  # True already predicted
             true.label = true.label.lower()
             if true.label in labels.keys():  # Model is trained to predict that label
                 update_count(true_per_class, true.label)# Count objects on image
                 # Search if model predicted that object
+
                 for p in eval_preds:
                     p.label = p.label.lower()
                     if not predictions_counted: # Count the number of predictions per class (only once)
@@ -144,11 +146,12 @@ def detection(dataset, model, labels, iou_threshold, debug, save_path, mode='det
                             pred_idx = labels[p.label]
                             true_idx = labels[true.label]
                             conf_matrix[true_idx, pred_idx] += 1
-                        if true.label == p.label and not true_predicted:
+                        if true.label == p.label and not true_predicted and p not in true_predicted_objects:
                             add_result(obs_results, 'true_pos', p.label)
                             true_predicted = True
                             # Remove prediction for avoid double counting near elements
-                            eval_preds.remove(p)
+                            true_predicted_objects.append(p)
+
 
                 predictions_counted = True # After make one loop for predictions
 
