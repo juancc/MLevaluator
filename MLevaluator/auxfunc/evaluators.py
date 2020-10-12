@@ -46,21 +46,22 @@ def cascade_to_detection_labels(objects, model, labels):
     Add a new object with the geometry of detector and the label of the subobject.
     Detector object is removed for avoid confusing results"""
     new_objects = []
-    for o in objects:
-        o.label = o.label.lower()
-        if o.label in model.sub_models.keys() and o.subobject:
-            for sub_obj in o.subobject:
-                sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj # Classifier return prediction in a list
-                sub_obj.label = sub_obj.label.lower()
-                if sub_obj.label in labels.keys():
-                    new_objects.append(
-                        Object(
-                            geometry =o.geometry,
-                            label = sub_obj.label,
-                            score = sub_obj.score,
-                            subobject = None
+    if objects:
+        for o in objects:
+            o.label = o.label.lower()
+            if o.label in model.sub_models.keys() and o.subobject:
+                for sub_obj in o.subobject:
+                    sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj # Classifier return prediction in a list
+                    sub_obj.label = sub_obj.label.lower()
+                    if sub_obj.label in labels.keys():
+                        new_objects.append(
+                            Object(
+                                geometry =o.geometry,
+                                label = sub_obj.label,
+                                score = sub_obj.score,
+                                subobject = None
+                            )
                         )
-                    )
     return new_objects
 
 def posterior_to_detection_labels(objects, model, labels):
@@ -68,21 +69,22 @@ def posterior_to_detection_labels(objects, model, labels):
         Add a new object with the geometry of detector and the label of the subobject.
         Detector object is removed for avoid confusing results"""
     new_objects = []
-    for o in objects:
-        o.label = o.label.lower()
-        if o.label in model.labels.keys() and o.subobject:
-            for sub_obj in o.subobject:
-                sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj  # Classifier return prediction in a list
-                sub_obj.label = sub_obj.label.lower()
-                if sub_obj.label in model.labels[o.label]:
+    if objects:
+        for o in objects:
+            o.label = o.label.lower()
+            if o.label in model.labels.keys() and o.subobject:
+                for sub_obj in o.subobject:
+                    sub_obj = sub_obj[0] if isinstance(sub_obj, list) else sub_obj  # Classifier return prediction in a list
                     sub_obj.label = sub_obj.label.lower()
-                    new_objects.append(
-                        Object(
-                            geometry=o.geometry,
-                            label=sub_obj.label,
-                            score=sub_obj.score,
-                            subobject=None
-                        )
+                    if sub_obj.label in model.labels[o.label]:
+                        sub_obj.label = sub_obj.label.lower()
+                        new_objects.append(
+                            Object(
+                                geometry=o.geometry,
+                                label=sub_obj.label,
+                                score=sub_obj.score,
+                                subobject=None
+                            )
                     )
     return new_objects
 

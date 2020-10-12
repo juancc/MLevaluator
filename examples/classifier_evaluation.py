@@ -1,6 +1,4 @@
-import sys
-sys.path.append('/misdoc/vaico/architectures/kerasclassifiers/')
-from kerasClassifiers.KerasClassifiers import KerasClassifiers
+from  MLinference.architectures.KerasClassifiers import KerasClassifiers
 
 from MLevaluator.evaluate import evaluate
 

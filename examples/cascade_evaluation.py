@@ -1,7 +1,4 @@
-import sys
-# sys.path.append('/misdoc/vaico/MLinference')
-sys.path.append('/misdoc/vaico/architectures/kerasclassifiers/')
-from kerasClassifiers.KerasClassifiers import KerasClassifiers
+from MLinference.architectures.KerasClassifiers import KerasClassifiers
 from MLinference.architectures import Yolo4
 from MLinference.strategies import Cascade
 
